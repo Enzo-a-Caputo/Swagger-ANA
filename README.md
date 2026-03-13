@@ -15,14 +15,14 @@ O projeto é modular para facilitar a manutenção e escalabilidade:
 * `ANA_Swagger_Download.py`: Orquestração de downloads em lote por período.
 
 
-###1. Autenticação e Segurança (ANA_Swagger_Autenticacao.py)
+### 1. Autenticação e Segurança (ANA_Swagger_Autenticacao.py)
 
 O módulo `ANA_Swagger_Autenticacao.py` é o componente responsável pela gestão de acesso e segurança na comunicação com o Hidro Webservice. Ele implementa a função `gerar_token_ana`, que automatiza o processo de login enviando as credenciais do usuário via cabeçalhos HTTP para o endpoint de OAuth da Agência Nacional de Águas. Além de extrair o `tokenautenticacao` necessário para validar todas as requisições subsequentes de consulta e download, o script realiza o tratamento da string de validade retornada pela API, convertendo-a em um objeto `datetime` nativo do Python para permitir o controle programático da expiração da sessão. Vale ressaltar que o identificador e a senha necessários para o funcionamento deste módulo devem ser solicitados oficialmente através do portal do Hidroweb.
 
 Aqui está o conteúdo formatado para o seu README.md, seguindo exatamente o estilo de texto corrido e técnico dos tópicos anteriores:
 
 
-###2. Comunicação Base com o Swagger (ANA_Swagger_Base_GET.py)
+### 2. Comunicação Base com o Swagger (ANA_Swagger_Base_GET.py)
 
 O módulo ANA_Swagger_Base_GET.py funciona como o motor de requisições do projeto, encapsulando a complexidade das chamadas HTTP na classe Base_API. Ele padroniza a comunicação com os diversos endpoints da ANA, gerenciando automaticamente os cabeçalhos de autenticação Bearer e os parâmetros de consulta necessários para cada operação. Uma característica fundamental deste módulo é a implementação de validações rigorosas antes do envio dos dados: o código verifica se os intervalos de datas respeitam o limite de 366 dias para séries históricas e 30 dias para dados telemétricos, além de validar o formato das strings e os tipos de filtros permitidos, como DATA_LEITURA ou DATA_ULTIMA_ATUALIZACAO. O módulo também trata respostas de erro específicas, como o status 401 para tokens expirados, e converte os retornos da API diretamente em dicionários JSON, servindo de base para o processamento de dados subsequente.
 
@@ -42,13 +42,13 @@ Abaixo estão listados todos os endpoints da ANA já implementados através dest
 * `HidroinfoanaSerieTelemetricaAdotada`
 
 
-###3. Downloads em Lote (ANA_Swagger_Download.py)
+### 3. Downloads em Lote (ANA_Swagger_Download.py)
 O módulo `ANA_Swagger_Download.py` implementa a classe `Download_JSON`, projetada para realizar a extração massiva de dados e o armazenamento em arquivos locais. Sua lógica principal resolve a limitação de intervalo da API através de loops temporais que particionam a solicitação por anos (séries históricas) ou janelas de 30 dias (telemetria), consolidando os itens retornados em um único arquivo JSON.
 
 O componente inclui um mecanismo de persistência de sessão que utiliza a função `_verificar_e_renovar_token`. Este método monitora a validade do token JWT em tempo real e executa a renovação automática caso o tempo de expiração seja inferior a dois minutos, garantindo a continuidade de downloads de longa duração. O módulo também realiza o tratamento de erros HTTP 401, forçando a reautenticação imediata, e organiza os dados telemétricos por ordem cronológica após a filtragem do período exato solicitado.
 
 
-###4. Tratamento e Conversão de Dados (ANA_Swagger_Processamento.py)
+### 4. Tratamento e Conversão de Dados (ANA_Swagger_Processamento.py)
 O módulo ANA_Swagger_Processamento.py automatiza a transformação de arquivos JSON brutos em Pandas DataFrames e arquivos CSV estruturados. Através da classe Processamento_JSON, a biblioteca realiza o parsing de campos complexos, como a transposição de colunas mensais (ex: Chuva_01 a Chuva_31) para séries temporais contínuas, garantindo que cada linha represente uma única observação temporal.
 
 As principais funcionalidades técnicas incluem:
@@ -60,7 +60,7 @@ As principais funcionalidades técnicas incluem:
 * Saída Estruturada: Exportação automática para CSV (separador ;) e retorno de dicionários contendo os DataFrames prontos para análise.
 
 
-###5. Ferramentas Espaciais e de Apoio (ANA_Swagger_Aplicacoes.py)
+### 5. Ferramentas Espaciais e de Apoio (ANA_Swagger_Aplicacoes.py)
 O módulo ANA_Swagger_Aplicacoes.py expande as capacidades da biblioteca ao oferecer funcionalidades que auxiliam o fluxo de trabalho geográfico do hidrólogo. Através da classe Aplicacoes, o módulo integra as bibliotecas GeoPandas, Matplotlib e Contextily para automatizar o inventário de estações dentro de áreas de interesse e a geração de mapas temáticos, permitindo a visualização espacial direta da bacia hidrográfica em estudo.
 
 As funcionalidades de busca e visualização estão divididas em três níveis de complexidade:
