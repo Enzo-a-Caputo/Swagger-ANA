@@ -69,10 +69,11 @@ As funcionalidades de busca e visualização estão divididas em três níveis d
 * Visualização Avançada e Simbologia (achar_estacoes_pela_bacia_2): Aprimora a representação visual ao diferenciar as estações por simbologia técnica: triângulos verdes para pluviometria e círculos vermelhos para fluviometria. Esta função automatiza o ajuste de escala (tight_layout) e garante que o processamento da drenagem seja feito dentro do sistema de referência correto para evitar distorções espaciais.
 * Contextualização Cartográfica (achar_estacoes_pela_bacia_3): É a ferramenta de maior nível técnico para apresentações e relatórios. Além do processamento espacial, ela utiliza a biblioteca contextily para adicionar um mapa de fundo (como OpenStreetMap ou imagens de satélite) ao gráfico. Para isso, a função realiza a reprojeção interna de todos os vetores para o sistema Mercator Global (EPSG:3857), permitindo o alinhamento perfeito entre os dados da ANA e os serviços de mapas web (basemaps).
 
----
 
 ## 🚀 Como Usar
+O arquivo `ANA_Swagger_Exemplos.ipynb` serve como um guia prático para a implementação rápida das funcionalidades da biblioteca. Ele contém scripts pré-configurados que demonstram o fluxo completo de trabalho, desde a geração do token de acesso e o download automatizado de séries históricas até o processamento dos arquivos JSON em DataFrames e a exportação para CSV. Este módulo é ideal para novos usuários que desejam testar a comunicação com o Webservice da ANA ou integrar rapidamente as ferramentas de análise espacial em seus projetos de recursos hídricos.
 
+---
 ### Pré-requisitos
 ```bash
 pip install requests pandas geopandas matplotlib contextily
