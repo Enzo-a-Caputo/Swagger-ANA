@@ -1,7 +1,8 @@
 # Swagger-ANA: Interface Hidro Webservice 
 
-Autor: Enzo Augusto Caputo Engenheiro Civil graduado pela UFMG (Universidade Federal de Minas Gerais).
-Contato: zoencaputo@gmail.com
+**Autor**: Enzo Augusto Caputo Engenheiro Civil graduado pela UFMG (Universidade Federal de Minas Gerais).
+
+**Contato**: zoencaputo@gmail.com
 
 Este repositório fornece uma biblioteca em Python para a automação do download e processamento de dados hidrometeorológicos através do **Hidro Webservice**, a nova API baseada em Swagger da Agência Nacional de Águas e Saneamento Básico (ANA).
 
