@@ -24,12 +24,11 @@ O projeto é modular para facilitar a manutenção e escalabilidade:
 
 O módulo `ANA_Swagger_Autenticacao.py` é o componente responsável pela gestão de acesso e segurança na comunicação com o Hidro Webservice. Ele implementa a função `gerar_token_ana`, que automatiza o processo de login enviando as credenciais do usuário via cabeçalhos HTTP para o endpoint de OAuth da Agência Nacional de Águas. Além de extrair o `tokenautenticacao` necessário para validar todas as requisições subsequentes de consulta e download, o script realiza o tratamento da string de validade retornada pela API, convertendo-a em um objeto `datetime` nativo do Python para permitir o controle programático da expiração da sessão. Vale ressaltar que o identificador e a senha necessários para o funcionamento deste módulo devem ser solicitados oficialmente através do portal do Hidroweb.
 
-Aqui está o conteúdo formatado para o seu README.md, seguindo exatamente o estilo de texto corrido e técnico dos tópicos anteriores:
-
-
 ### 2. Comunicação Base com o Swagger (ANA_Swagger_Base_GET.py)
 
-O módulo ANA_Swagger_Base_GET.py funciona como o motor de requisições do projeto, encapsulando a complexidade das chamadas HTTP na classe Base_API. Ele padroniza a comunicação com os diversos endpoints da ANA, gerenciando automaticamente os cabeçalhos de autenticação Bearer e os parâmetros de consulta necessários para cada operação. Uma característica fundamental deste módulo é a implementação de validações rigorosas antes do envio dos dados: o código verifica se os intervalos de datas respeitam o limite de 366 dias para séries históricas e 30 dias para dados telemétricos, além de validar o formato das strings e os tipos de filtros permitidos, como DATA_LEITURA ou DATA_ULTIMA_ATUALIZACAO. O módulo também trata respostas de erro específicas, como o status 401 para tokens expirados, e converte os retornos da API diretamente em dicionários JSON, servindo de base para o processamento de dados subsequente.
+O módulo `ANA_Swagger_Base_GET.py` funciona como o motor de requisições do projeto, encapsulando a complexidade das chamadas HTTP na classe `Base_API`. Ele padroniza a comunicação com os diversos endpoints da ANA, gerenciando automaticamente os cabeçalhos de autenticação Bearer e os parâmetros de consulta necessários para cada operação. Toda a comunicação utiliza uma única instância de `requests.Session`, que mantém o pool de conexões TCP/TLS reaproveitado entre requisições, eliminando o custo de handshake repetido — espelhando o `CloseableHttpClient` do exemplo Java oficial da ANA. Cada chamada também respeita um timeout fixo de 60 segundos, evitando que requisições travadas bloqueiem indefinidamente o download.
+
+Uma característica fundamental deste módulo é a implementação de validações rigorosas antes do envio dos dados: o código verifica se os intervalos de datas respeitam o limite de 366 dias para séries históricas e 30 dias para dados telemétricos, além de validar o formato das strings e os tipos de filtros permitidos, como `DATA_LEITURA` ou `DATA_ULTIMA_ATUALIZACAO`. O módulo normaliza respostas HTTP 401 em uma exceção dedicada (`TOKEN_INVALIDO`) consumida pela camada de orquestração, e converte os retornos da API diretamente em dicionários JSON. Toda a montagem de header, requisição e checagem de erro está centralizada em um único helper privado (`_request`), eliminando duplicação entre os endpoints.
 
 Abaixo estão listados todos os endpoints da ANA já implementados através deste módulo:
 
@@ -41,7 +40,7 @@ Abaixo estão listados todos os endpoints da ANA já implementados através dest
 * `HidroSerieQA`
 * `HidroSerieResumoDescarga`
 * `HidroSerieSedimentos`
-* `HidroSerieDados:`
+* `HidroSerieGranulometria`
 * `HidroInventarioEstacoes`
 * `HidroinfoanaSerieTelemetricaDetalhada`
 * `HidroinfoanaSerieTelemetricaAdotada`
@@ -50,7 +49,11 @@ Abaixo estão listados todos os endpoints da ANA já implementados através dest
 ### 3. Downloads em Lote (ANA_Swagger_Download.py)
 O módulo `ANA_Swagger_Download.py` implementa a classe `Download_JSON`, projetada para realizar a extração massiva de dados e o armazenamento em arquivos locais. Sua lógica principal resolve a limitação de intervalo da API através de loops temporais que particionam a solicitação por anos (séries históricas) ou janelas de 30 dias (telemetria), consolidando os itens retornados em um único arquivo JSON.
 
-O componente inclui um mecanismo de persistência de sessão que utiliza a função `_verificar_e_renovar_token`. Este método monitora a validade do token JWT em tempo real e executa a renovação automática caso o tempo de expiração seja inferior a dois minutos, garantindo a continuidade de downloads de longa duração. O módulo também realiza o tratamento de erros HTTP 401, forçando a reautenticação imediata, e organiza os dados telemétricos por ordem cronológica após a filtragem do período exato solicitado.
+Para maximizar o throughput, as requisições de cada janela temporal são despachadas em paralelo por um `ThreadPoolExecutor` (5 workers por padrão, configurável via `max_workers`), seguindo a mesma estratégia adotada pelo exemplo Java oficial da ANA. Todos os workers compartilham o mesmo token de autenticação, protegido por um lock que evita gerações redundantes (*thundering herd*): se múltiplas threads detectarem expiração simultaneamente, apenas a primeira força a renovação, e as demais aproveitam o novo token. A renovação é orientada a evento — quando a API rejeita o token com 401 ou `TOKEN_INVALIDO` — e não por tempo, refletindo o comportamento real da ANA, em que a expiração do JWT é imprevisível.
+
+Para sobreviver à instabilidade típica do servidor da ANA, o módulo implementa um motor de *retry* centralizado (`_executar_com_retry`) que distingue três classes de erro: falhas de autenticação (renova o token sem consumir tentativa), erros transitórios (HTTP 408/425/429/5xx, `ConnectionError`, `Timeout`, `ChunkedEncodingError`, `JSONDecodeError`) e erros permanentes (re-raise imediato). Os erros transitórios disparam um *backoff exponencial global* compartilhado entre os workers: a janela de espera dobra a cada falha consecutiva (de 5s até 300s) e reseta após o primeiro sucesso, evitando que vários workers retentem simultaneamente contra uma API já sobrecarregada.
+
+Cada janela temporal baixada é persistida atomicamente (arquivo `.tmp` + `os.replace`) em uma subpasta `.parciais_<prefixo>_estacao_<código>/`, permitindo a retomada exata do ponto onde uma execução foi interrompida: re-executar simplesmente pula as janelas já gravadas. Ao final, todos os parciais são consolidados em um único JSON. A flag `limpar_parciais=True` remove a pasta intermediária após a consolidação. Todas as mensagens de progresso e erro utilizam o módulo padrão `logging`, com handler default automático para que notebooks e scripts simples vejam a saída sem configuração adicional.
 
 
 ### 4. Tratamento e Conversão de Dados (ANA_Swagger_Processamento.py)
@@ -76,7 +79,7 @@ As funcionalidades de busca e visualização estão divididas em três níveis d
 
 
 ## Como Usar
-O arquivo `ANA_Swagger_Exemplos.ipynb` serve como um guia prático para a implementação rápida das funcionalidades da biblioteca. Ele contém scripts pré-configurados que demonstram o fluxo completo de trabalho, desde a geração do token de acesso e o download automatizado de séries históricas até o processamento dos arquivos JSON em DataFrames e a exportação para CSV. Este módulo é ideal para novos usuários que desejam testar a comunicação com o Webservice da ANA ou integrar rapidamente as ferramentas de análise espacial em seus projetos de recursos hídricos.
+O arquivo `Exemplos/Exemplos.ipynb` serve como um guia prático para a implementação rápida das funcionalidades da biblioteca. Ele contém scripts pré-configurados que demonstram o fluxo completo de trabalho, desde a geração do token de acesso e o download automatizado de séries históricas até o processamento dos arquivos JSON em DataFrames e a exportação para CSV. Este módulo é ideal para novos usuários que desejam testar a comunicação com o Webservice da ANA ou integrar rapidamente as ferramentas de análise espacial em seus projetos de recursos hídricos.
 
 ---
 ### Pré-requisitos
